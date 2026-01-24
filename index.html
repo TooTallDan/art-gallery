@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Romantic Art Gallery</title>
+    <title>Museum Art Gallery</title>
     <style>
         * {
             margin: 0;
@@ -43,6 +43,38 @@
             letter-spacing: 3px;
             color: var(--accent);
             margin-bottom: 8px;
+        }
+
+        .genre-selector {
+            margin: 15px 0;
+        }
+
+        .genre-select {
+            background: #333;
+            color: var(--text);
+            border: 1px solid var(--accent);
+            padding: 12px 20px;
+            font-size: 1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            min-width: 280px;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23c9a55a' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 15px center;
+            padding-right: 40px;
+        }
+
+        .genre-select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 10px rgba(201, 165, 90, 0.3);
+        }
+
+        .genre-select option {
+            background: #333;
+            color: var(--text);
+            padding: 10px;
         }
 
         .subtitle {
@@ -212,7 +244,6 @@
             color: white;
         }
 
-        /* Pagination */
         .pagination {
             display: flex;
             justify-content: center;
@@ -249,7 +280,6 @@
             transform: none;
         }
 
-        /* Modal */
         .modal {
             display: none;
             position: fixed;
@@ -375,11 +405,6 @@
             color: #e74c3c;
         }
 
-        .hidden-count {
-            color: var(--text-dim);
-            font-size: 0.8rem;
-        }
-
         @media (max-width: 900px) {
             .modal-content {
                 flex-direction: column;
@@ -394,13 +419,51 @@
             .gallery { padding: 10px; gap: 10px; }
             .controls { gap: 8px; }
             .btn { padding: 8px 15px; font-size: 0.75rem; }
+            .genre-select { min-width: 200px; font-size: 0.9rem; }
         }
     </style>
 </head>
 <body>
     <header>
-        <h1>ROMANTIC ART GALLERY</h1>
-        <p class="subtitle">Hudson River School & European Romanticism</p>
+        <h1>MUSEUM ART GALLERY</h1>
+        <div class="genre-selector">
+            <select class="genre-select" id="genreSelect" onchange="changeGenre()">
+                <optgroup label="Movements & Styles">
+                    <option value="romanticism" selected>Romanticism & Hudson River School</option>
+                    <option value="impressionism">Impressionism</option>
+                    <option value="post-impressionism">Post-Impressionism</option>
+                    <option value="expressionism">Expressionism</option>
+                    <option value="realism">Realism</option>
+                    <option value="baroque">Baroque</option>
+                    <option value="renaissance">Renaissance</option>
+                    <option value="neoclassicism">Neoclassicism</option>
+                    <option value="rococo">Rococo</option>
+                    <option value="symbolism">Symbolism</option>
+                    <option value="art-nouveau">Art Nouveau</option>
+                    <option value="cubism">Cubism & Modern Art</option>
+                    <option value="surrealism">Surrealism</option>
+                    <option value="abstract">Abstract Art</option>
+                </optgroup>
+                <optgroup label="Subjects & Themes">
+                    <option value="landscape">Landscapes</option>
+                    <option value="portrait">Portraits</option>
+                    <option value="still-life">Still Life</option>
+                    <option value="religious">Religious & Biblical</option>
+                    <option value="mythology">Mythology</option>
+                    <option value="marine">Marine & Seascapes</option>
+                    <option value="animals">Animals & Wildlife</option>
+                    <option value="genre-scenes">Genre Scenes (Daily Life)</option>
+                </optgroup>
+                <optgroup label="Regional & Cultural">
+                    <option value="dutch-golden">Dutch Golden Age</option>
+                    <option value="japanese">Japanese Art (Ukiyo-e)</option>
+                    <option value="chinese">Chinese Art</option>
+                    <option value="islamic">Islamic Art</option>
+                    <option value="ancient">Ancient Art</option>
+                </optgroup>
+            </select>
+        </div>
+        <p class="subtitle" id="genreSubtitle">Hudson River School & European Romanticism</p>
         <div class="controls">
             <button class="btn active" onclick="showAll()" id="allBtn">All Works</button>
             <button class="btn" onclick="showFavorites()" id="favBtn">
@@ -453,38 +516,213 @@
         let allArtworks = [];
         let favorites = JSON.parse(localStorage.getItem('artFavorites')) || [];
         let hidden = JSON.parse(localStorage.getItem('artHidden')) || [];
-        let currentView = 'all'; // 'all', 'favorites', 'hidden'
+        let currentView = 'all';
         let currentArtwork = null;
         let isLoading = false;
         let loadedSearches = { met: 0, chicago: 0, rijks: 0 };
+        let currentGenre = 'romanticism';
 
-        const ITEMS_PER_PAGE = 24;
-        let currentPage = 1;
-
-        // Extended search terms for more results
-        const searchTerms = {
-            met: [
-                'Hudson River School', 'Thomas Cole', 'Albert Bierstadt', 'Frederic Edwin Church',
-                'Asher Durand', 'romantic landscape', 'J.M.W. Turner', 'John Constable',
-                'Caspar David Friedrich', 'landscape painting', 'romanticism', 'American landscape',
-                'sunset landscape', 'mountain landscape', 'river landscape', 'forest landscape',
-                'Sanford Gifford', 'Jasper Cropsey', 'John Kensett', 'Martin Johnson Heade'
-            ],
-            chicago: [
-                'romanticism', 'Hudson River School', 'landscape painting 19th century',
-                'Thomas Cole', 'romantic', 'American landscape', 'Bierstadt', 'Church',
-                'landscape sunset', 'mountain painting', 'nature painting', 'pastoral',
-                'Turner', 'Constable', 'romantic nature'
-            ],
-            rijks: [
-                'landscape', 'romantic', 'romantiek', 'landschap', 'nature', 'sunset',
-                'mountain', 'forest', 'river', 'pastoral', 'scenery'
-            ]
+        // Genre definitions with search terms for each museum
+        const genres = {
+            'romanticism': {
+                name: 'Romanticism & Hudson River School',
+                subtitle: 'Hudson River School & European Romanticism',
+                met: ['Hudson River School', 'Thomas Cole', 'Albert Bierstadt', 'Frederic Edwin Church', 'romantic landscape', 'J.M.W. Turner', 'John Constable', 'Caspar David Friedrich', 'romanticism', 'Asher Durand', 'Sanford Gifford', 'Jasper Cropsey'],
+                chicago: ['romanticism', 'Hudson River School', 'romantic landscape', 'Thomas Cole', 'Bierstadt', 'Turner', 'romantic painting'],
+                rijks: ['romantic', 'romantiek', 'landscape romantic', 'romantisch']
+            },
+            'impressionism': {
+                name: 'Impressionism',
+                subtitle: 'Light, color, and everyday moments',
+                met: ['impressionism', 'Monet', 'Renoir', 'Degas', 'Pissarro', 'Sisley', 'impressionist', 'Manet', 'Berthe Morisot', 'Mary Cassatt'],
+                chicago: ['impressionism', 'Monet', 'Renoir', 'impressionist', 'Degas', 'Caillebotte'],
+                rijks: ['impressionisme', 'impressionist', 'Monet', 'impressionistisch']
+            },
+            'post-impressionism': {
+                name: 'Post-Impressionism',
+                subtitle: 'Van Gogh, Cézanne, Gauguin & beyond',
+                met: ['post-impressionism', 'Van Gogh', 'Cézanne', 'Gauguin', 'Seurat', 'Toulouse-Lautrec', 'pointillism', 'Paul Signac'],
+                chicago: ['post-impressionism', 'Van Gogh', 'Cézanne', 'Gauguin', 'Seurat', 'pointillism'],
+                rijks: ['Van Gogh', 'post-impressionisme', 'pointillisme']
+            },
+            'expressionism': {
+                name: 'Expressionism',
+                subtitle: 'Emotional intensity and bold colors',
+                met: ['expressionism', 'Kirchner', 'Kandinsky', 'Franz Marc', 'Egon Schiele', 'Edvard Munch', 'Die Brücke', 'Der Blaue Reiter'],
+                chicago: ['expressionism', 'expressionist', 'Kandinsky', 'Kirchner', 'German expressionism'],
+                rijks: ['expressionisme', 'expressionistisch']
+            },
+            'realism': {
+                name: 'Realism',
+                subtitle: 'Depicting life as it truly appears',
+                met: ['realism', 'Courbet', 'Millet', 'Winslow Homer', 'Thomas Eakins', 'realist painting', 'Jean-François Millet'],
+                chicago: ['realism', 'Courbet', 'realist', 'Winslow Homer', 'American realism'],
+                rijks: ['realisme', 'realistisch']
+            },
+            'baroque': {
+                name: 'Baroque',
+                subtitle: 'Drama, grandeur, and rich detail',
+                met: ['baroque', 'Rembrandt', 'Vermeer', 'Caravaggio', 'Rubens', 'Velázquez', 'baroque painting', 'chiaroscuro'],
+                chicago: ['baroque', 'Rembrandt', 'Caravaggio', 'Rubens', 'Velázquez'],
+                rijks: ['barok', 'Rembrandt', 'Vermeer', 'baroque', 'gouden eeuw']
+            },
+            'renaissance': {
+                name: 'Renaissance',
+                subtitle: 'Classical revival and humanist ideals',
+                met: ['renaissance', 'Leonardo', 'Raphael', 'Botticelli', 'Titian', 'Michelangelo', 'Italian renaissance', 'Northern renaissance'],
+                chicago: ['renaissance', 'Italian renaissance', 'Botticelli', 'Titian'],
+                rijks: ['renaissance', 'italiaanse renaissance']
+            },
+            'neoclassicism': {
+                name: 'Neoclassicism',
+                subtitle: 'Greek and Roman classical revival',
+                met: ['neoclassicism', 'Jacques-Louis David', 'Ingres', 'neoclassical', 'Antonio Canova', 'classical painting'],
+                chicago: ['neoclassicism', 'neoclassical', 'David', 'Ingres'],
+                rijks: ['neoclassicisme', 'classicisme']
+            },
+            'rococo': {
+                name: 'Rococo',
+                subtitle: 'Elegance, playfulness, and ornate beauty',
+                met: ['rococo', 'Fragonard', 'Boucher', 'Watteau', 'rococo painting', 'fête galante'],
+                chicago: ['rococo', 'Fragonard', 'Boucher', 'Watteau'],
+                rijks: ['rococo', 'rococostijl']
+            },
+            'symbolism': {
+                name: 'Symbolism',
+                subtitle: 'Dreams, myths, and hidden meanings',
+                met: ['symbolism', 'Gustave Moreau', 'Odilon Redon', 'symbolist', 'Puvis de Chavannes', 'Arnold Böcklin'],
+                chicago: ['symbolism', 'symbolist', 'Redon', 'Moreau'],
+                rijks: ['symbolisme', 'symbolistisch']
+            },
+            'art-nouveau': {
+                name: 'Art Nouveau',
+                subtitle: 'Organic forms and decorative elegance',
+                met: ['art nouveau', 'Alphonse Mucha', 'Klimt', 'Tiffany', 'jugendstil', 'decorative arts'],
+                chicago: ['art nouveau', 'Mucha', 'Klimt', 'decorative'],
+                rijks: ['art nouveau', 'jugendstil', 'nieuwe kunst']
+            },
+            'cubism': {
+                name: 'Cubism & Modern Art',
+                subtitle: 'Picasso, Braque, and geometric forms',
+                met: ['cubism', 'Picasso', 'Braque', 'Juan Gris', 'Fernand Léger', 'cubist', 'modern art'],
+                chicago: ['cubism', 'Picasso', 'cubist', 'Braque', 'modern art'],
+                rijks: ['kubisme', 'moderne kunst', 'Picasso']
+            },
+            'surrealism': {
+                name: 'Surrealism',
+                subtitle: 'Dreams, the unconscious, and the irrational',
+                met: ['surrealism', 'Salvador Dalí', 'René Magritte', 'Max Ernst', 'surrealist', 'Joan Miró'],
+                chicago: ['surrealism', 'Dalí', 'Magritte', 'surrealist', 'Ernst'],
+                rijks: ['surrealisme', 'surrealistisch']
+            },
+            'abstract': {
+                name: 'Abstract Art',
+                subtitle: 'Form, color, and non-representational expression',
+                met: ['abstract', 'abstract expressionism', 'Mondrian', 'Rothko', 'Pollock', 'Kandinsky abstract', 'color field'],
+                chicago: ['abstract', 'abstract expressionism', 'Mondrian', 'Rothko', 'Pollock'],
+                rijks: ['abstract', 'abstracte kunst', 'Mondriaan']
+            },
+            'landscape': {
+                name: 'Landscapes',
+                subtitle: 'Nature, scenery, and the great outdoors',
+                met: ['landscape painting', 'landscape', 'mountain landscape', 'forest landscape', 'river landscape', 'sunset landscape', 'pastoral'],
+                chicago: ['landscape', 'landscape painting', 'nature painting', 'scenery'],
+                rijks: ['landschap', 'landscape', 'natuurgezicht']
+            },
+            'portrait': {
+                name: 'Portraits',
+                subtitle: 'Capturing the human likeness',
+                met: ['portrait', 'portrait painting', 'self portrait', 'portraiture', 'figure painting'],
+                chicago: ['portrait', 'portraiture', 'self portrait', 'figure'],
+                rijks: ['portret', 'portrait', 'zelfportret']
+            },
+            'still-life': {
+                name: 'Still Life',
+                subtitle: 'Objects, flowers, and arrangements',
+                met: ['still life', 'flower painting', 'vanitas', 'fruit painting', 'nature morte'],
+                chicago: ['still life', 'flowers', 'vanitas', 'fruit'],
+                rijks: ['stilleven', 'bloemen', 'vanitas', 'still life']
+            },
+            'religious': {
+                name: 'Religious & Biblical',
+                subtitle: 'Sacred stories and spiritual themes',
+                met: ['religious painting', 'biblical', 'madonna', 'crucifixion', 'saints', 'altar', 'christian art'],
+                chicago: ['religious', 'biblical', 'madonna', 'saints', 'christian'],
+                rijks: ['religieus', 'bijbels', 'madonna', 'heiligen']
+            },
+            'mythology': {
+                name: 'Mythology',
+                subtitle: 'Gods, heroes, and ancient legends',
+                met: ['mythology', 'mythological', 'Greek mythology', 'Venus', 'Apollo', 'classical mythology'],
+                chicago: ['mythology', 'mythological', 'classical', 'Greek gods'],
+                rijks: ['mythologie', 'mythologisch', 'goden']
+            },
+            'marine': {
+                name: 'Marine & Seascapes',
+                subtitle: 'The sea, ships, and coastal scenes',
+                met: ['marine painting', 'seascape', 'ships', 'naval', 'maritime', 'ocean painting'],
+                chicago: ['marine', 'seascape', 'ships', 'ocean', 'coastal'],
+                rijks: ['zeegezicht', 'marine', 'schepen', 'zee']
+            },
+            'animals': {
+                name: 'Animals & Wildlife',
+                subtitle: 'Creatures great and small',
+                met: ['animal painting', 'horses', 'dogs', 'wildlife', 'birds', 'hunting scene'],
+                chicago: ['animal', 'horses', 'dogs', 'wildlife', 'birds'],
+                rijks: ['dieren', 'paarden', 'honden', 'vogels']
+            },
+            'genre-scenes': {
+                name: 'Genre Scenes',
+                subtitle: 'Everyday life and domestic moments',
+                met: ['genre painting', 'genre scene', 'domestic scene', 'tavern', 'peasant', 'daily life'],
+                chicago: ['genre', 'daily life', 'domestic', 'peasant'],
+                rijks: ['genrestuk', 'dagelijks leven', 'interieur']
+            },
+            'dutch-golden': {
+                name: 'Dutch Golden Age',
+                subtitle: '17th century Dutch masters',
+                met: ['Dutch Golden Age', 'Dutch painting', 'Rembrandt', 'Vermeer', 'Frans Hals', 'Dutch masters'],
+                chicago: ['Dutch Golden Age', 'Dutch painting', 'Rembrandt', 'Vermeer'],
+                rijks: ['gouden eeuw', 'hollandse meesters', '17e eeuw', 'Rembrandt', 'Vermeer']
+            },
+            'japanese': {
+                name: 'Japanese Art',
+                subtitle: 'Ukiyo-e prints and traditional painting',
+                met: ['ukiyo-e', 'Japanese print', 'Hokusai', 'Hiroshige', 'Japanese painting', 'woodblock'],
+                chicago: ['ukiyo-e', 'Japanese', 'Hokusai', 'Hiroshige', 'woodblock'],
+                rijks: ['japans', 'ukiyo-e', 'Hokusai', 'prentkunst japan']
+            },
+            'chinese': {
+                name: 'Chinese Art',
+                subtitle: 'Landscapes, calligraphy, and tradition',
+                met: ['Chinese painting', 'Chinese landscape', 'Chinese scroll', 'Chinese art', 'ink painting China'],
+                chicago: ['Chinese painting', 'Chinese art', 'Chinese scroll'],
+                rijks: ['chinees', 'chinese kunst']
+            },
+            'islamic': {
+                name: 'Islamic Art',
+                subtitle: 'Geometric patterns and illumination',
+                met: ['Islamic art', 'Persian miniature', 'Islamic calligraphy', 'Mughal', 'arabesque'],
+                chicago: ['Islamic', 'Persian', 'Mughal', 'Middle Eastern'],
+                rijks: ['islamitisch', 'perzisch', 'arabisch']
+            },
+            'ancient': {
+                name: 'Ancient Art',
+                subtitle: 'Egyptian, Greek, and Roman antiquities',
+                met: ['ancient Egyptian', 'ancient Greek', 'ancient Roman', 'antiquity', 'classical sculpture'],
+                chicago: ['ancient', 'Egyptian', 'Greek antiquity', 'Roman'],
+                rijks: ['oudheid', 'egyptisch', 'grieks', 'romeins']
+            }
         };
+
+        function getCurrentSearchTerms() {
+            return genres[currentGenre] || genres['romanticism'];
+        }
 
         async function fetchMet(startIndex = 0, count = 5) {
             const results = [];
-            const searches = searchTerms.met.slice(startIndex, startIndex + count);
+            const terms = getCurrentSearchTerms().met;
+            const searches = terms.slice(startIndex, startIndex + count);
 
             for (const term of searches) {
                 try {
@@ -528,7 +766,8 @@
 
         async function fetchChicago(startIndex = 0, count = 5) {
             const results = [];
-            const searches = searchTerms.chicago.slice(startIndex, startIndex + count);
+            const terms = getCurrentSearchTerms().chicago;
+            const searches = terms.slice(startIndex, startIndex + count);
 
             for (const term of searches) {
                 try {
@@ -563,11 +802,12 @@
         async function fetchRijks(startIndex = 0, count = 3) {
             const results = [];
             const apiKey = '0fiuZFh4';
-            const searches = searchTerms.rijks.slice(startIndex, startIndex + count);
+            const terms = getCurrentSearchTerms().rijks;
+            const searches = terms.slice(startIndex, startIndex + count);
 
             for (const term of searches) {
                 try {
-                    const res = await fetch(`https://www.rijksmuseum.nl/api/en/collection?key=${apiKey}&q=${encodeURIComponent(term)}&imgonly=true&ps=25&type=painting`);
+                    const res = await fetch(`https://www.rijksmuseum.nl/api/en/collection?key=${apiKey}&q=${encodeURIComponent(term)}&imgonly=true&ps=25`);
                     const data = await res.json();
 
                     if (data.artObjects) {
@@ -595,9 +835,9 @@
             return results;
         }
 
-        function dedupeArtworks(artworks) {
+        function dedupeArtworks(artworks, existingArtworks = []) {
             const seen = new Set();
-            const existingIds = new Set(allArtworks.map(a => a.id));
+            const existingIds = new Set(existingArtworks.map(a => a.id));
             return artworks.filter(art => {
                 if (existingIds.has(art.id)) return false;
                 const key = `${art.title}-${art.artist}`.toLowerCase();
@@ -608,14 +848,16 @@
         }
 
         async function loadInitialArtworks() {
+            document.getElementById('gallery').innerHTML = '<div class="loading"><div class="spinner"></div><p>Searching museum collections...</p></div>';
+
             try {
                 const [metResults, chicagoResults, rijksResults] = await Promise.all([
-                    fetchMet(0, 5),
-                    fetchChicago(0, 5),
+                    fetchMet(0, 4),
+                    fetchChicago(0, 4),
                     fetchRijks(0, 3)
                 ]);
 
-                loadedSearches = { met: 5, chicago: 5, rijks: 3 };
+                loadedSearches = { met: 4, chicago: 4, rijks: 3 };
 
                 allArtworks = dedupeArtworks([
                     ...metResults,
@@ -634,6 +876,22 @@
             }
         }
 
+        function changeGenre() {
+            const select = document.getElementById('genreSelect');
+            currentGenre = select.value;
+            const genre = genres[currentGenre];
+
+            document.getElementById('genreSubtitle').textContent = genre.subtitle;
+
+            // Reset and reload
+            allArtworks = [];
+            loadedSearches = { met: 0, chicago: 0, rijks: 0 };
+            currentView = 'all';
+            setActiveButton('all');
+
+            loadInitialArtworks();
+        }
+
         async function loadMore() {
             if (isLoading) return;
             isLoading = true;
@@ -643,6 +901,7 @@
             btn.disabled = true;
 
             try {
+                const terms = getCurrentSearchTerms();
                 const [metResults, chicagoResults, rijksResults] = await Promise.all([
                     fetchMet(loadedSearches.met, 3),
                     fetchChicago(loadedSearches.chicago, 3),
@@ -657,12 +916,11 @@
                     ...metResults,
                     ...chicagoResults,
                     ...rijksResults
-                ]);
+                ], allArtworks);
 
                 newArtworks.sort(() => Math.random() - 0.5);
                 allArtworks = [...allArtworks, ...newArtworks];
 
-                currentPage++;
                 updateStats();
                 renderGallery();
                 updatePagination();
@@ -705,11 +963,11 @@
         function updatePagination() {
             const pagination = document.getElementById('pagination');
             const pageInfo = document.getElementById('pageInfo');
-            const btn = document.getElementById('loadMoreBtn');
+            const terms = getCurrentSearchTerms();
 
-            const hasMoreSearches = loadedSearches.met < searchTerms.met.length ||
-                                    loadedSearches.chicago < searchTerms.chicago.length ||
-                                    loadedSearches.rijks < searchTerms.rijks.length;
+            const hasMoreSearches = loadedSearches.met < terms.met.length ||
+                                    loadedSearches.chicago < terms.chicago.length ||
+                                    loadedSearches.rijks < terms.rijks.length;
 
             if (currentView === 'all' && hasMoreSearches) {
                 pagination.style.display = 'flex';
@@ -767,7 +1025,6 @@
                         hidden.push(id);
                         localStorage.setItem('artHidden', JSON.stringify(hidden));
                     }
-                    // Remove from favorites if hidden
                     favorites = favorites.filter(f => f !== id);
                     localStorage.setItem('artFavorites', JSON.stringify(favorites));
 
