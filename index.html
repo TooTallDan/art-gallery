@@ -208,12 +208,6 @@
             gap: 8px;
         }
 
-        .card-actions-left {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-        }
-
         .icon-btn {
             background: rgba(0,0,0,0.7);
             border: none;
@@ -237,6 +231,16 @@
         .icon-btn.favorited {
             background: var(--accent);
             color: #1a1a1a;
+        }
+
+        .dismiss-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+
+        .dismiss-btn:hover {
+            background: var(--danger);
         }
 
         .icon-btn.remove-btn:hover {
@@ -472,9 +476,6 @@
             <button class="btn" onclick="downloadFavorites()" id="downloadBtn" disabled>
                 Download Favorites
             </button>
-            <button class="btn btn-subtle" onclick="showHidden()" id="hiddenBtn" style="display:none">
-                Hidden <span class="badge" id="hiddenCount">0</span>
-            </button>
         </div>
     </header>
 
@@ -506,7 +507,6 @@
                     <button class="btn" onclick="toggleFavoriteModal()" id="modalFavBtn">Add to Favorites</button>
                     <button class="btn" onclick="downloadCurrent()">Download Image</button>
                     <button class="btn" onclick="openSource()">View on Museum Site</button>
-                    <button class="btn btn-subtle" onclick="hideCurrentAndClose()" id="modalHideBtn">Hide This Artwork</button>
                 </div>
             </div>
         </div>
@@ -515,7 +515,8 @@
     <script>
         let allArtworks = [];
         let favorites = JSON.parse(localStorage.getItem('artFavorites')) || [];
-        let hidden = JSON.parse(localStorage.getItem('artHidden')) || [];
+        let favoriteArtworks = JSON.parse(localStorage.getItem('artFavoriteData')) || {}; // Store full artwork data
+        let dismissed = []; // Session only, not persisted
         let currentView = 'all';
         let currentArtwork = null;
         let isLoading = false;
@@ -867,6 +868,7 @@
 
                 allArtworks.sort(() => Math.random() - 0.5);
 
+                syncFavoriteData();
                 updateStats();
                 renderGallery();
                 updatePagination();
@@ -936,12 +938,12 @@
 
         function getVisibleArtworks() {
             if (currentView === 'favorites') {
-                return allArtworks.filter(a => favorites.includes(a.id) && !hidden.includes(a.id));
-            } else if (currentView === 'hidden') {
-                return allArtworks.filter(a => hidden.includes(a.id));
-            } else {
-                return allArtworks.filter(a => !hidden.includes(a.id));
+                return favorites
+                    .filter(id => !dismissed.includes(id))
+                    .map(id => favoriteArtworks[id] || allArtworks.find(a => a.id === id))
+                    .filter(Boolean);
             }
+            return allArtworks.filter(a => !dismissed.includes(a.id));
         }
 
         function updateStats() {
@@ -982,10 +984,9 @@
             const artworks = getVisibleArtworks();
 
             if (artworks.length === 0) {
-                let message = 'Loading...';
-                if (currentView === 'favorites') message = 'No favorites yet. Click the star on artworks you love!';
-                else if (currentView === 'hidden') message = 'No hidden artworks.';
-
+                const message = currentView === 'favorites'
+                    ? 'No favorites yet. Click the star on artworks you love!'
+                    : 'Loading...';
                 gallery.innerHTML = `<div class="loading"><p>${message}</p></div>`;
                 return;
             }
@@ -993,11 +994,7 @@
             gallery.innerHTML = artworks.map(art => `
                 <div class="card" id="card-${art.id}" onclick="openModal('${art.id}')">
                     <img class="card-img" src="${art.thumbUrl}" alt="${art.title}" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23333%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2250%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22>No Image</text></svg>'">
-                    <div class="card-actions-left">
-                        <button class="icon-btn remove-btn" onclick="event.stopPropagation(); ${currentView === 'hidden' ? `unhideArt('${art.id}')` : `hideArt('${art.id}')`}" title="${currentView === 'hidden' ? 'Restore' : 'Hide'}">
-                            ${currentView === 'hidden' ? '↩' : '✕'}
-                        </button>
-                    </div>
+                    <button class="icon-btn dismiss-btn" onclick="event.stopPropagation(); dismissArt('${art.id}')" title="Dismiss">✕</button>
                     <div class="card-actions">
                         <button class="icon-btn ${isFavorite(art.id) ? 'favorited' : ''}" onclick="event.stopPropagation(); toggleFavorite('${art.id}')">
                             ${isFavorite(art.id) ? '★' : '☆'}
@@ -1016,39 +1013,14 @@
             `).join('');
         }
 
-        function hideArt(id) {
+        function dismissArt(id) {
             const card = document.getElementById(`card-${id}`);
-            if (card) {
-                card.classList.add('removing');
-                setTimeout(() => {
-                    if (!hidden.includes(id)) {
-                        hidden.push(id);
-                        localStorage.setItem('artHidden', JSON.stringify(hidden));
-                    }
-                    favorites = favorites.filter(f => f !== id);
-                    localStorage.setItem('artFavorites', JSON.stringify(favorites));
-
-                    updateCounts();
-                    updateStats();
-                    renderGallery();
-                }, 300);
-            }
-        }
-
-        function unhideArt(id) {
-            hidden = hidden.filter(h => h !== id);
-            localStorage.setItem('artHidden', JSON.stringify(hidden));
-            updateCounts();
-            updateStats();
-            renderGallery();
-        }
-
-        function hideCurrentAndClose() {
-            if (currentArtwork) {
-                const id = currentArtwork.id;
-                closeModal();
-                hideArt(id);
-            }
+            if (card) card.classList.add('removing');
+            setTimeout(() => {
+                dismissed.push(id);
+                updateStats();
+                renderGallery();
+            }, 300);
         }
 
         function isFavorite(id) {
@@ -1058,10 +1030,18 @@
         function toggleFavorite(id) {
             if (favorites.includes(id)) {
                 favorites = favorites.filter(f => f !== id);
+                // Remove from stored data
+                delete favoriteArtworks[id];
             } else {
                 favorites.push(id);
+                // Store the full artwork data so it persists across genres
+                const art = allArtworks.find(a => a.id === id);
+                if (art) {
+                    favoriteArtworks[id] = art;
+                }
             }
             localStorage.setItem('artFavorites', JSON.stringify(favorites));
+            localStorage.setItem('artFavoriteData', JSON.stringify(favoriteArtworks));
             updateCounts();
             renderGallery();
             updateStats();
@@ -1070,16 +1050,12 @@
         function updateCounts() {
             document.getElementById('favCount').textContent = favorites.length;
             document.getElementById('downloadBtn').disabled = favorites.length === 0;
-
-            document.getElementById('hiddenCount').textContent = hidden.length;
-            document.getElementById('hiddenBtn').style.display = hidden.length > 0 ? 'inline-block' : 'none';
         }
 
         function setActiveButton(view) {
             document.querySelectorAll('.controls .btn').forEach(b => b.classList.remove('active'));
             if (view === 'all') document.getElementById('allBtn').classList.add('active');
             else if (view === 'favorites') document.getElementById('favBtn').classList.add('active');
-            else if (view === 'hidden') document.getElementById('hiddenBtn').classList.add('active');
         }
 
         function showAll() {
@@ -1098,16 +1074,8 @@
             updatePagination();
         }
 
-        function showHidden() {
-            currentView = 'hidden';
-            setActiveButton('hidden');
-            updateStats();
-            renderGallery();
-            updatePagination();
-        }
-
         function openModal(id) {
-            currentArtwork = allArtworks.find(a => a.id === id);
+            currentArtwork = allArtworks.find(a => a.id === id) || favoriteArtworks[id];
             if (!currentArtwork) return;
 
             document.getElementById('modalImg').src = currentArtwork.imageUrl;
@@ -1133,11 +1101,7 @@
 
         function updateModalButtons() {
             if (!currentArtwork) return;
-            const favBtn = document.getElementById('modalFavBtn');
-            const hideBtn = document.getElementById('modalHideBtn');
-
-            favBtn.textContent = isFavorite(currentArtwork.id) ? 'Remove from Favorites' : 'Add to Favorites';
-            hideBtn.textContent = hidden.includes(currentArtwork.id) ? 'Restore This Artwork' : 'Hide This Artwork';
+            document.getElementById('modalFavBtn').textContent = isFavorite(currentArtwork.id) ? 'Remove from Favorites' : 'Add to Favorites';
         }
 
         function toggleFavoriteModal() {
@@ -1147,7 +1111,7 @@
         }
 
         function downloadArt(id) {
-            const art = allArtworks.find(a => a.id === id);
+            const art = allArtworks.find(a => a.id === id) || favoriteArtworks[id];
             if (!art) return;
 
             const link = document.createElement('a');
@@ -1172,7 +1136,9 @@
         }
 
         async function downloadFavorites() {
-            const favArts = allArtworks.filter(a => favorites.includes(a.id));
+            const favArts = favorites
+                .map(id => favoriteArtworks[id] || allArtworks.find(a => a.id === id))
+                .filter(Boolean);
             if (favArts.length === 0) return;
 
             alert(`Downloading ${favArts.length} artworks. They will open in new tabs - please allow popups if prompted.`);
@@ -1192,9 +1158,74 @@
             if (e.key === 'Escape') closeModal();
         });
 
+        // Sync any favorites in current artworks to stored data
+        function syncFavoriteData() {
+            allArtworks.forEach(art => {
+                if (favorites.includes(art.id) && !favoriteArtworks[art.id]) {
+                    favoriteArtworks[art.id] = art;
+                }
+            });
+            localStorage.setItem('artFavoriteData', JSON.stringify(favoriteArtworks));
+        }
+
+        // Fetch missing favorites directly by ID
+        async function fetchMissingFavorites() {
+            const missing = favorites.filter(id => !favoriteArtworks[id]);
+            if (missing.length === 0) return;
+
+            for (const id of missing) {
+                try {
+                    if (id.startsWith('met-')) {
+                        const objId = id.replace('met-', '');
+                        const res = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${objId}`);
+                        const obj = await res.json();
+                        if (obj && obj.primaryImage) {
+                            favoriteArtworks[id] = {
+                                id, title: obj.title || 'Untitled', artist: obj.artistDisplayName || 'Unknown',
+                                date: obj.objectDate || '', medium: obj.medium || '', dimensions: obj.dimensions || '',
+                                museum: 'The Met', imageUrl: obj.primaryImage, thumbUrl: obj.primaryImageSmall || obj.primaryImage,
+                                sourceUrl: obj.objectURL
+                            };
+                        }
+                    } else if (id.startsWith('chicago-')) {
+                        const artId = id.replace('chicago-', '');
+                        const res = await fetch(`https://api.artic.edu/api/v1/artworks/${artId}?fields=id,title,artist_display,date_display,medium_display,dimensions,image_id`);
+                        const data = await res.json();
+                        if (data.data && data.data.image_id) {
+                            const art = data.data;
+                            favoriteArtworks[id] = {
+                                id, title: art.title || 'Untitled', artist: art.artist_display || 'Unknown',
+                                date: art.date_display || '', medium: art.medium_display || '', dimensions: art.dimensions || '',
+                                museum: 'Art Institute of Chicago',
+                                imageUrl: `https://www.artic.edu/iiif/2/${art.image_id}/full/1200,/0/default.jpg`,
+                                thumbUrl: `https://www.artic.edu/iiif/2/${art.image_id}/full/400,/0/default.jpg`,
+                                sourceUrl: `https://www.artic.edu/artworks/${artId}`
+                            };
+                        }
+                    } else if (id.startsWith('rijks-')) {
+                        const objNum = id.replace('rijks-', '');
+                        const res = await fetch(`https://www.rijksmuseum.nl/api/en/collection/${objNum}?key=0fiuZFh4`);
+                        const data = await res.json();
+                        if (data.artObject && data.artObject.webImage) {
+                            const art = data.artObject;
+                            favoriteArtworks[id] = {
+                                id, title: art.title || 'Untitled', artist: art.principalOrFirstMaker || 'Unknown',
+                                date: '', medium: '', dimensions: '', museum: 'Rijksmuseum',
+                                imageUrl: art.webImage.url, thumbUrl: art.webImage.url.replace('=s0', '=s400'),
+                                sourceUrl: art.links?.web || `https://www.rijksmuseum.nl/en/collection/${objNum}`
+                            };
+                        }
+                    }
+                } catch (e) { console.log('Failed to fetch favorite:', id); }
+            }
+            localStorage.setItem('artFavoriteData', JSON.stringify(favoriteArtworks));
+            if (currentView === 'favorites') { updateStats(); renderGallery(); }
+        }
+
         // Initialize
         updateCounts();
         loadInitialArtworks();
+        fetchMissingFavorites();
     </script>
 </body>
 </html>
