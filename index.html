@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Romantic Art Gallery</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #1a1a1a;
+            --card: #252525;
+            --accent: #c9a55a;
+            --text: #f0f0f0;
+            --text-dim: #888;
+            --danger: #e74c3c;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        header {
+            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+            padding: 30px 20px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 300;
+            letter-spacing: 3px;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 10px 25px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+
+        .btn:hover, .btn.active {
+            background: var(--accent);
+            color: #1a1a1a;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn.btn-subtle {
+            border-color: #555;
+            color: #888;
+        }
+
+        .btn.btn-subtle:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: transparent;
+        }
+
+        .badge {
+            background: var(--accent);
+            color: #1a1a1a;
+            border-radius: 50%;
+            padding: 2px 8px;
+            font-size: 0.75rem;
+            margin-left: 8px;
+        }
+
+        .stats {
+            text-align: center;
+            padding: 15px;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s, opacity 0.3s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+        }
+
+        .card.removing {
+            opacity: 0;
+            transform: scale(0.8);
+        }
+
+        .card-img {
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+            background: #333;
+        }
+
+        .card-info {
+            padding: 15px;
+        }
+
+        .card-title {
+            font-size: 0.95rem;
+            font-weight: 500;
+            margin-bottom: 5px;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .card-artist {
+            color: var(--accent);
+            font-size: 0.8rem;
+            margin-bottom: 5px;
+        }
+
+        .card-meta {
+            color: var(--text-dim);
+            font-size: 0.75rem;
+        }
+
+        .card-actions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .card-actions-left {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+
+        .icon-btn {
+            background: rgba(0,0,0,0.7);
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            color: white;
+        }
+
+        .icon-btn:hover {
+            background: rgba(0,0,0,0.9);
+            transform: scale(1.1);
+        }
+
+        .icon-btn.favorited {
+            background: var(--accent);
+            color: #1a1a1a;
+        }
+
+        .icon-btn.remove-btn:hover {
+            background: var(--danger);
+            color: white;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            padding: 30px;
+            flex-wrap: wrap;
+        }
+
+        .page-info {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        .load-more-btn {
+            background: var(--accent);
+            color: #1a1a1a;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1rem;
+            cursor: pointer;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+
+        .load-more-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(201, 165, 90, 0.3);
+        }
+
+        .load-more-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .modal.open {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            max-width: 1200px;
+            width: 95%;
+            max-height: 95vh;
+            display: flex;
+            gap: 30px;
+            padding: 20px;
+        }
+
+        .modal-img-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-img {
+            max-width: 100%;
+            max-height: 80vh;
+            object-fit: contain;
+        }
+
+        .modal-info {
+            width: 350px;
+            flex-shrink: 0;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 400;
+            margin-bottom: 10px;
+            color: var(--accent);
+        }
+
+        .modal-artist {
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+
+        .modal-details {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            line-height: 1.8;
+            margin-bottom: 25px;
+        }
+
+        .modal-details strong {
+            color: var(--text);
+        }
+
+        .modal-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            font-size: 2rem;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .close-modal:hover {
+            color: var(--text);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: var(--text-dim);
+            grid-column: 1 / -1;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #333;
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .museum-tag {
+            display: inline-block;
+            background: #333;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #e74c3c;
+        }
+
+        .hidden-count {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 900px) {
+            .modal-content {
+                flex-direction: column;
+            }
+            .modal-info {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 1.5rem; }
+            .gallery { padding: 10px; gap: 10px; }
+            .controls { gap: 8px; }
+            .btn { padding: 8px 15px; font-size: 0.75rem; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>ROMANTIC ART GALLERY</h1>
+        <p class="subtitle">Hudson River School & European Romanticism</p>
+        <div class="controls">
+            <button class="btn active" onclick="showAll()" id="allBtn">All Works</button>
+            <button class="btn" onclick="showFavorites()" id="favBtn">
+                Favorites <span class="badge" id="favCount">0</span>
+            </button>
+            <button class="btn" onclick="downloadFavorites()" id="downloadBtn" disabled>
+                Download Favorites
+            </button>
+            <button class="btn btn-subtle" onclick="showHidden()" id="hiddenBtn" style="display:none">
+                Hidden <span class="badge" id="hiddenCount">0</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="stats" id="stats">Loading artworks...</div>
+
+    <div class="gallery" id="gallery">
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Searching museum collections...</p>
+        </div>
+    </div>
+
+    <div class="pagination" id="pagination" style="display:none">
+        <button class="load-more-btn" onclick="loadMore()" id="loadMoreBtn">Load More Artworks</button>
+        <span class="page-info" id="pageInfo"></span>
+    </div>
+
+    <div class="modal" id="modal">
+        <span class="close-modal" onclick="closeModal()">&times;</span>
+        <div class="modal-content">
+            <div class="modal-img-container">
+                <img class="modal-img" id="modalImg" src="" alt="">
+            </div>
+            <div class="modal-info">
+                <h2 class="modal-title" id="modalTitle"></h2>
+                <p class="modal-artist" id="modalArtist"></p>
+                <div class="modal-details" id="modalDetails"></div>
+                <div class="modal-actions">
+                    <button class="btn" onclick="toggleFavoriteModal()" id="modalFavBtn">Add to Favorites</button>
+                    <button class="btn" onclick="downloadCurrent()">Download Image</button>
+                    <button class="btn" onclick="openSource()">View on Museum Site</button>
+                    <button class="btn btn-subtle" onclick="hideCurrentAndClose()" id="modalHideBtn">Hide This Artwork</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allArtworks = [];
+        let favorites = JSON.parse(localStorage.getItem('artFavorites')) || [];
+        let hidden = JSON.parse(localStorage.getItem('artHidden')) || [];
+        let currentView = 'all'; // 'all', 'favorites', 'hidden'
+        let currentArtwork = null;
+        let isLoading = false;
+        let loadedSearches = { met: 0, chicago: 0, rijks: 0 };
+
+        const ITEMS_PER_PAGE = 24;
+        let currentPage = 1;
+
+        // Extended search terms for more results
+        const searchTerms = {
+            met: [
+                'Hudson River School', 'Thomas Cole', 'Albert Bierstadt', 'Frederic Edwin Church',
+                'Asher Durand', 'romantic landscape', 'J.M.W. Turner', 'John Constable',
+                'Caspar David Friedrich', 'landscape painting', 'romanticism', 'American landscape',
+                'sunset landscape', 'mountain landscape', 'river landscape', 'forest landscape',
+                'Sanford Gifford', 'Jasper Cropsey', 'John Kensett', 'Martin Johnson Heade'
+            ],
+            chicago: [
+                'romanticism', 'Hudson River School', 'landscape painting 19th century',
+                'Thomas Cole', 'romantic', 'American landscape', 'Bierstadt', 'Church',
+                'landscape sunset', 'mountain painting', 'nature painting', 'pastoral',
+                'Turner', 'Constable', 'romantic nature'
+            ],
+            rijks: [
+                'landscape', 'romantic', 'romantiek', 'landschap', 'nature', 'sunset',
+                'mountain', 'forest', 'river', 'pastoral', 'scenery'
+            ]
+        };
+
+        async function fetchMet(startIndex = 0, count = 5) {
+            const results = [];
+            const searches = searchTerms.met.slice(startIndex, startIndex + count);
+
+            for (const term of searches) {
+                try {
+                    const searchRes = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/search?q=${encodeURIComponent(term)}&hasImages=true&isPublicDomain=true`);
+                    const searchData = await searchRes.json();
+
+                    if (searchData.objectIDs) {
+                        const ids = searchData.objectIDs.slice(0, 20);
+                        const details = await Promise.all(
+                            ids.map(id =>
+                                fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${id}`)
+                                    .then(r => r.json())
+                                    .catch(() => null)
+                            )
+                        );
+
+                        for (const obj of details) {
+                            if (obj && obj.primaryImage && obj.isPublicDomain) {
+                                results.push({
+                                    id: `met-${obj.objectID}`,
+                                    title: obj.title || 'Untitled',
+                                    artist: obj.artistDisplayName || 'Unknown Artist',
+                                    date: obj.objectDate || '',
+                                    medium: obj.medium || '',
+                                    dimensions: obj.dimensions || '',
+                                    museum: 'The Met',
+                                    imageUrl: obj.primaryImage,
+                                    thumbUrl: obj.primaryImageSmall || obj.primaryImage,
+                                    sourceUrl: obj.objectURL,
+                                    department: obj.department || ''
+                                });
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.log('Met search error:', e);
+                }
+            }
+            return results;
+        }
+
+        async function fetchChicago(startIndex = 0, count = 5) {
+            const results = [];
+            const searches = searchTerms.chicago.slice(startIndex, startIndex + count);
+
+            for (const term of searches) {
+                try {
+                    const res = await fetch(`https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(term)}&query[term][is_public_domain]=true&fields=id,title,artist_display,date_display,medium_display,dimensions,image_id,api_link&limit=25`);
+                    const data = await res.json();
+
+                    if (data.data) {
+                        for (const art of data.data) {
+                            if (art.image_id) {
+                                results.push({
+                                    id: `chicago-${art.id}`,
+                                    title: art.title || 'Untitled',
+                                    artist: art.artist_display || 'Unknown Artist',
+                                    date: art.date_display || '',
+                                    medium: art.medium_display || '',
+                                    dimensions: art.dimensions || '',
+                                    museum: 'Art Institute of Chicago',
+                                    imageUrl: `https://www.artic.edu/iiif/2/${art.image_id}/full/1200,/0/default.jpg`,
+                                    thumbUrl: `https://www.artic.edu/iiif/2/${art.image_id}/full/400,/0/default.jpg`,
+                                    sourceUrl: `https://www.artic.edu/artworks/${art.id}`
+                                });
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.log('Chicago search error:', e);
+                }
+            }
+            return results;
+        }
+
+        async function fetchRijks(startIndex = 0, count = 3) {
+            const results = [];
+            const apiKey = '0fiuZFh4';
+            const searches = searchTerms.rijks.slice(startIndex, startIndex + count);
+
+            for (const term of searches) {
+                try {
+                    const res = await fetch(`https://www.rijksmuseum.nl/api/en/collection?key=${apiKey}&q=${encodeURIComponent(term)}&imgonly=true&ps=25&type=painting`);
+                    const data = await res.json();
+
+                    if (data.artObjects) {
+                        for (const art of data.artObjects) {
+                            if (art.webImage && art.webImage.url) {
+                                results.push({
+                                    id: `rijks-${art.objectNumber}`,
+                                    title: art.title || 'Untitled',
+                                    artist: art.principalOrFirstMaker || 'Unknown Artist',
+                                    date: '',
+                                    medium: '',
+                                    dimensions: '',
+                                    museum: 'Rijksmuseum',
+                                    imageUrl: art.webImage.url,
+                                    thumbUrl: art.webImage.url.replace('=s0', '=s400'),
+                                    sourceUrl: art.links?.web || `https://www.rijksmuseum.nl/en/collection/${art.objectNumber}`
+                                });
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.log('Rijks search error:', e);
+                }
+            }
+            return results;
+        }
+
+        function dedupeArtworks(artworks) {
+            const seen = new Set();
+            const existingIds = new Set(allArtworks.map(a => a.id));
+            return artworks.filter(art => {
+                if (existingIds.has(art.id)) return false;
+                const key = `${art.title}-${art.artist}`.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+        }
+
+        async function loadInitialArtworks() {
+            try {
+                const [metResults, chicagoResults, rijksResults] = await Promise.all([
+                    fetchMet(0, 5),
+                    fetchChicago(0, 5),
+                    fetchRijks(0, 3)
+                ]);
+
+                loadedSearches = { met: 5, chicago: 5, rijks: 3 };
+
+                allArtworks = dedupeArtworks([
+                    ...metResults,
+                    ...chicagoResults,
+                    ...rijksResults
+                ]);
+
+                allArtworks.sort(() => Math.random() - 0.5);
+
+                updateStats();
+                renderGallery();
+                updatePagination();
+            } catch (e) {
+                console.error('Error loading artworks:', e);
+                document.getElementById('gallery').innerHTML = '<div class="error">Error loading artworks. Please refresh to try again.</div>';
+            }
+        }
+
+        async function loadMore() {
+            if (isLoading) return;
+            isLoading = true;
+
+            const btn = document.getElementById('loadMoreBtn');
+            btn.textContent = 'Loading...';
+            btn.disabled = true;
+
+            try {
+                const [metResults, chicagoResults, rijksResults] = await Promise.all([
+                    fetchMet(loadedSearches.met, 3),
+                    fetchChicago(loadedSearches.chicago, 3),
+                    fetchRijks(loadedSearches.rijks, 2)
+                ]);
+
+                loadedSearches.met += 3;
+                loadedSearches.chicago += 3;
+                loadedSearches.rijks += 2;
+
+                const newArtworks = dedupeArtworks([
+                    ...metResults,
+                    ...chicagoResults,
+                    ...rijksResults
+                ]);
+
+                newArtworks.sort(() => Math.random() - 0.5);
+                allArtworks = [...allArtworks, ...newArtworks];
+
+                currentPage++;
+                updateStats();
+                renderGallery();
+                updatePagination();
+
+            } catch (e) {
+                console.error('Error loading more:', e);
+            }
+
+            btn.textContent = 'Load More Artworks';
+            btn.disabled = false;
+            isLoading = false;
+        }
+
+        function getVisibleArtworks() {
+            if (currentView === 'favorites') {
+                return allArtworks.filter(a => favorites.includes(a.id) && !hidden.includes(a.id));
+            } else if (currentView === 'hidden') {
+                return allArtworks.filter(a => hidden.includes(a.id));
+            } else {
+                return allArtworks.filter(a => !hidden.includes(a.id));
+            }
+        }
+
+        function updateStats() {
+            const artworks = getVisibleArtworks();
+            const museums = {};
+            artworks.forEach(a => {
+                museums[a.museum] = (museums[a.museum] || 0) + 1;
+            });
+
+            const statsText = Object.entries(museums)
+                .map(([m, c]) => `${m}: ${c}`)
+                .join(' · ');
+
+            const viewLabel = currentView === 'favorites' ? 'favorite ' : currentView === 'hidden' ? 'hidden ' : '';
+            document.getElementById('stats').textContent =
+                `${artworks.length} ${viewLabel}artworks${statsText ? ' · ' + statsText : ''}`;
+        }
+
+        function updatePagination() {
+            const pagination = document.getElementById('pagination');
+            const pageInfo = document.getElementById('pageInfo');
+            const btn = document.getElementById('loadMoreBtn');
+
+            const hasMoreSearches = loadedSearches.met < searchTerms.met.length ||
+                                    loadedSearches.chicago < searchTerms.chicago.length ||
+                                    loadedSearches.rijks < searchTerms.rijks.length;
+
+            if (currentView === 'all' && hasMoreSearches) {
+                pagination.style.display = 'flex';
+                pageInfo.textContent = `Showing ${getVisibleArtworks().length} artworks`;
+            } else {
+                pagination.style.display = 'none';
+            }
+        }
+
+        function renderGallery() {
+            const gallery = document.getElementById('gallery');
+            const artworks = getVisibleArtworks();
+
+            if (artworks.length === 0) {
+                let message = 'Loading...';
+                if (currentView === 'favorites') message = 'No favorites yet. Click the star on artworks you love!';
+                else if (currentView === 'hidden') message = 'No hidden artworks.';
+
+                gallery.innerHTML = `<div class="loading"><p>${message}</p></div>`;
+                return;
+            }
+
+            gallery.innerHTML = artworks.map(art => `
+                <div class="card" id="card-${art.id}" onclick="openModal('${art.id}')">
+                    <img class="card-img" src="${art.thumbUrl}" alt="${art.title}" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23333%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2250%22 fill=%22%23666%22 text-anchor=%22middle%22 dy=%22.3em%22>No Image</text></svg>'">
+                    <div class="card-actions-left">
+                        <button class="icon-btn remove-btn" onclick="event.stopPropagation(); ${currentView === 'hidden' ? `unhideArt('${art.id}')` : `hideArt('${art.id}')`}" title="${currentView === 'hidden' ? 'Restore' : 'Hide'}">
+                            ${currentView === 'hidden' ? '↩' : '✕'}
+                        </button>
+                    </div>
+                    <div class="card-actions">
+                        <button class="icon-btn ${isFavorite(art.id) ? 'favorited' : ''}" onclick="event.stopPropagation(); toggleFavorite('${art.id}')">
+                            ${isFavorite(art.id) ? '★' : '☆'}
+                        </button>
+                        <button class="icon-btn" onclick="event.stopPropagation(); downloadArt('${art.id}')" title="Download">↓</button>
+                    </div>
+                    <div class="card-info">
+                        <div class="card-title">${art.title}</div>
+                        <div class="card-artist">${art.artist}</div>
+                        <div class="card-meta">
+                            <span class="museum-tag">${art.museum}</span>
+                            ${art.date ? ` · ${art.date}` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function hideArt(id) {
+            const card = document.getElementById(`card-${id}`);
+            if (card) {
+                card.classList.add('removing');
+                setTimeout(() => {
+                    if (!hidden.includes(id)) {
+                        hidden.push(id);
+                        localStorage.setItem('artHidden', JSON.stringify(hidden));
+                    }
+                    // Remove from favorites if hidden
+                    favorites = favorites.filter(f => f !== id);
+                    localStorage.setItem('artFavorites', JSON.stringify(favorites));
+
+                    updateCounts();
+                    updateStats();
+                    renderGallery();
+                }, 300);
+            }
+        }
+
+        function unhideArt(id) {
+            hidden = hidden.filter(h => h !== id);
+            localStorage.setItem('artHidden', JSON.stringify(hidden));
+            updateCounts();
+            updateStats();
+            renderGallery();
+        }
+
+        function hideCurrentAndClose() {
+            if (currentArtwork) {
+                const id = currentArtwork.id;
+                closeModal();
+                hideArt(id);
+            }
+        }
+
+        function isFavorite(id) {
+            return favorites.includes(id);
+        }
+
+        function toggleFavorite(id) {
+            if (favorites.includes(id)) {
+                favorites = favorites.filter(f => f !== id);
+            } else {
+                favorites.push(id);
+            }
+            localStorage.setItem('artFavorites', JSON.stringify(favorites));
+            updateCounts();
+            renderGallery();
+            updateStats();
+        }
+
+        function updateCounts() {
+            document.getElementById('favCount').textContent = favorites.length;
+            document.getElementById('downloadBtn').disabled = favorites.length === 0;
+
+            document.getElementById('hiddenCount').textContent = hidden.length;
+            document.getElementById('hiddenBtn').style.display = hidden.length > 0 ? 'inline-block' : 'none';
+        }
+
+        function setActiveButton(view) {
+            document.querySelectorAll('.controls .btn').forEach(b => b.classList.remove('active'));
+            if (view === 'all') document.getElementById('allBtn').classList.add('active');
+            else if (view === 'favorites') document.getElementById('favBtn').classList.add('active');
+            else if (view === 'hidden') document.getElementById('hiddenBtn').classList.add('active');
+        }
+
+        function showAll() {
+            currentView = 'all';
+            setActiveButton('all');
+            updateStats();
+            renderGallery();
+            updatePagination();
+        }
+
+        function showFavorites() {
+            currentView = 'favorites';
+            setActiveButton('favorites');
+            updateStats();
+            renderGallery();
+            updatePagination();
+        }
+
+        function showHidden() {
+            currentView = 'hidden';
+            setActiveButton('hidden');
+            updateStats();
+            renderGallery();
+            updatePagination();
+        }
+
+        function openModal(id) {
+            currentArtwork = allArtworks.find(a => a.id === id);
+            if (!currentArtwork) return;
+
+            document.getElementById('modalImg').src = currentArtwork.imageUrl;
+            document.getElementById('modalTitle').textContent = currentArtwork.title;
+            document.getElementById('modalArtist').textContent = currentArtwork.artist;
+            document.getElementById('modalDetails').innerHTML = `
+                ${currentArtwork.date ? `<p><strong>Date:</strong> ${currentArtwork.date}</p>` : ''}
+                ${currentArtwork.medium ? `<p><strong>Medium:</strong> ${currentArtwork.medium}</p>` : ''}
+                ${currentArtwork.dimensions ? `<p><strong>Dimensions:</strong> ${currentArtwork.dimensions}</p>` : ''}
+                <p><strong>Collection:</strong> ${currentArtwork.museum}</p>
+            `;
+
+            updateModalButtons();
+            document.getElementById('modal').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('open');
+            document.body.style.overflow = '';
+            currentArtwork = null;
+        }
+
+        function updateModalButtons() {
+            if (!currentArtwork) return;
+            const favBtn = document.getElementById('modalFavBtn');
+            const hideBtn = document.getElementById('modalHideBtn');
+
+            favBtn.textContent = isFavorite(currentArtwork.id) ? 'Remove from Favorites' : 'Add to Favorites';
+            hideBtn.textContent = hidden.includes(currentArtwork.id) ? 'Restore This Artwork' : 'Hide This Artwork';
+        }
+
+        function toggleFavoriteModal() {
+            if (!currentArtwork) return;
+            toggleFavorite(currentArtwork.id);
+            updateModalButtons();
+        }
+
+        function downloadArt(id) {
+            const art = allArtworks.find(a => a.id === id);
+            if (!art) return;
+
+            const link = document.createElement('a');
+            link.href = art.imageUrl;
+            link.download = `${art.artist} - ${art.title}`.replace(/[^a-z0-9]/gi, '_') + '.jpg';
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function downloadCurrent() {
+            if (currentArtwork) {
+                downloadArt(currentArtwork.id);
+            }
+        }
+
+        function openSource() {
+            if (currentArtwork && currentArtwork.sourceUrl) {
+                window.open(currentArtwork.sourceUrl, '_blank');
+            }
+        }
+
+        async function downloadFavorites() {
+            const favArts = allArtworks.filter(a => favorites.includes(a.id));
+            if (favArts.length === 0) return;
+
+            alert(`Downloading ${favArts.length} artworks. They will open in new tabs - please allow popups if prompted.`);
+
+            for (const art of favArts) {
+                downloadArt(art.id);
+                await new Promise(r => setTimeout(r, 500));
+            }
+        }
+
+        // Event listeners
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') closeModal();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        // Initialize
+        updateCounts();
+        loadInitialArtworks();
+    </script>
+</body>
+</html>
