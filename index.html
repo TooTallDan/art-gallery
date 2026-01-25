@@ -45,8 +45,44 @@
             margin-bottom: 8px;
         }
 
-        .genre-selector {
+        .search-bar {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
             margin: 15px 0;
+        }
+
+        .search-bar input {
+            background: #333;
+            border: 1px solid #555;
+            color: var(--text);
+            padding: 12px 20px;
+            font-size: 1rem;
+            border-radius: 25px;
+            width: 280px;
+        }
+
+        .search-bar input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .search-bar button {
+            background: var(--accent);
+            color: #1a1a1a;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .search-bar button:hover {
+            opacity: 0.9;
+        }
+
+        .genre-selector {
+            margin: 10px 0;
         }
 
         .genre-select {
@@ -430,6 +466,10 @@
 <body>
     <header>
         <h1>MUSEUM ART GALLERY</h1>
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Search any keyword..." onkeypress="if(event.key==='Enter')customSearch()">
+            <button onclick="customSearch()">Search</button>
+        </div>
         <div class="genre-selector">
             <select class="genre-select" id="genreSelect" onchange="changeGenre()">
                 <optgroup label="Movements & Styles">
@@ -520,7 +560,7 @@
         let currentView = 'all';
         let currentArtwork = null;
         let isLoading = false;
-        let loadedSearches = { met: 0, chicago: 0, rijks: 0 };
+        let loadedSearches = { met: 0, chicago: 0, rijks: 0, cleveland: 0, walters: 0 };
         let currentGenre = 'romanticism';
 
         // Genre definitions with search terms for each museum
@@ -720,6 +760,14 @@
             return genres[currentGenre] || genres['romanticism'];
         }
 
+        // Filter for paintings/drawings/prints - exclude coins, pottery, sculpture, furniture, etc.
+        function isPainting(medium, objectName) {
+            const text = ((medium || '') + ' ' + (objectName || '')).toLowerCase();
+            const exclude = ['coin', 'ceramic', 'pottery', 'vase', 'bowl', 'plate', 'sculpture', 'statue', 'furniture', 'textile', 'tapestry', 'armor', 'weapon', 'jewelry', 'silver', 'gold object', 'bronze object', 'glass', 'porcelain', 'stoneware', 'earthenware', 'medal', 'seal', 'vessel', 'jar', 'cup', 'ewer', 'flask', 'bottle', 'figurine'];
+            if (exclude.some(e => text.includes(e))) return false;
+            return true;
+        }
+
         async function fetchMet(startIndex = 0, count = 5) {
             const results = [];
             const terms = getCurrentSearchTerms().met;
@@ -741,11 +789,12 @@
                         );
 
                         for (const obj of details) {
-                            if (obj && obj.primaryImage && obj.isPublicDomain) {
+                            if (obj && obj.primaryImage && obj.isPublicDomain && isPainting(obj.medium, obj.objectName)) {
                                 results.push({
                                     id: `met-${obj.objectID}`,
                                     title: obj.title || 'Untitled',
                                     artist: obj.artistDisplayName || 'Unknown Artist',
+                                    artistUrl: obj.artistWikidata_URL || null,
                                     date: obj.objectDate || '',
                                     medium: obj.medium || '',
                                     dimensions: obj.dimensions || '',
@@ -772,16 +821,17 @@
 
             for (const term of searches) {
                 try {
-                    const res = await fetch(`https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(term)}&query[term][is_public_domain]=true&fields=id,title,artist_display,date_display,medium_display,dimensions,image_id,api_link&limit=25`);
+                    const res = await fetch(`https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(term)}&query[term][is_public_domain]=true&fields=id,title,artist_display,artist_id,date_display,medium_display,dimensions,image_id,artwork_type_title&limit=25`);
                     const data = await res.json();
 
                     if (data.data) {
                         for (const art of data.data) {
-                            if (art.image_id) {
+                            if (art.image_id && isPainting(art.medium_display, art.artwork_type_title)) {
                                 results.push({
                                     id: `chicago-${art.id}`,
                                     title: art.title || 'Untitled',
                                     artist: art.artist_display || 'Unknown Artist',
+                                    artistUrl: art.artist_id ? `https://www.artic.edu/artists/${art.artist_id}` : null,
                                     date: art.date_display || '',
                                     medium: art.medium_display || '',
                                     dimensions: art.dimensions || '',
@@ -818,6 +868,7 @@
                                     id: `rijks-${art.objectNumber}`,
                                     title: art.title || 'Untitled',
                                     artist: art.principalOrFirstMaker || 'Unknown Artist',
+                                    artistUrl: null,
                                     date: '',
                                     medium: '',
                                     dimensions: '',
@@ -832,6 +883,72 @@
                 } catch (e) {
                     console.log('Rijks search error:', e);
                 }
+            }
+            return results;
+        }
+
+        async function fetchCleveland(startIndex = 0, count = 3) {
+            const results = [];
+            const terms = getCurrentSearchTerms().cleveland || getCurrentSearchTerms().met.slice(0, 5);
+            const searches = terms.slice(startIndex, startIndex + count);
+
+            for (const term of searches) {
+                try {
+                    const res = await fetch(`https://openaccess-api.clevelandart.org/api/artworks?q=${encodeURIComponent(term)}&has_image=1&limit=20`);
+                    const data = await res.json();
+                    if (data.data) {
+                        for (const art of data.data) {
+                            if (art.images?.web && isPainting(art.technique, art.type)) {
+                                results.push({
+                                    id: `cleveland-${art.id}`,
+                                    title: art.title || 'Untitled',
+                                    artist: art.creators?.map(c => c.description).join(', ') || 'Unknown Artist',
+                                    artistUrl: null,
+                                    date: art.creation_date || '',
+                                    medium: art.technique || '',
+                                    dimensions: art.dimensions || '',
+                                    museum: 'Cleveland Museum of Art',
+                                    imageUrl: art.images.web.url,
+                                    thumbUrl: art.images.web.url,
+                                    sourceUrl: art.url || `https://www.clevelandart.org/art/${art.id}`
+                                });
+                            }
+                        }
+                    }
+                } catch (e) { console.log('Cleveland error:', e); }
+            }
+            return results;
+        }
+
+        async function fetchWalters(startIndex = 0, count = 3) {
+            const results = [];
+            const terms = getCurrentSearchTerms().walters || getCurrentSearchTerms().met.slice(0, 5);
+            const searches = terms.slice(startIndex, startIndex + count);
+
+            for (const term of searches) {
+                try {
+                    const res = await fetch(`https://api.thewalters.org/v1/objects?keyword=${encodeURIComponent(term)}&pageSize=20`);
+                    const data = await res.json();
+                    if (data.Items) {
+                        for (const art of data.Items) {
+                            if (art.PrimaryImage?.Raw && isPainting(art.Medium, art.Classification)) {
+                                results.push({
+                                    id: `walters-${art.ObjectID}`,
+                                    title: art.Title || 'Untitled',
+                                    artist: art.Creator || 'Unknown Artist',
+                                    artistUrl: null,
+                                    date: art.DateText || '',
+                                    medium: art.Medium || '',
+                                    dimensions: art.Dimensions || '',
+                                    museum: 'Walters Art Museum',
+                                    imageUrl: art.PrimaryImage.Raw,
+                                    thumbUrl: art.PrimaryImage.Small || art.PrimaryImage.Raw,
+                                    sourceUrl: art.ResourceURL || `https://art.thewalters.org/detail/${art.ObjectID}`
+                                });
+                            }
+                        }
+                    }
+                } catch (e) { console.log('Walters error:', e); }
             }
             return results;
         }
@@ -852,18 +969,22 @@
             document.getElementById('gallery').innerHTML = '<div class="loading"><div class="spinner"></div><p>Searching museum collections...</p></div>';
 
             try {
-                const [metResults, chicagoResults, rijksResults] = await Promise.all([
+                const [metResults, chicagoResults, rijksResults, clevelandResults, waltersResults] = await Promise.all([
                     fetchMet(0, 4),
                     fetchChicago(0, 4),
-                    fetchRijks(0, 3)
+                    fetchRijks(0, 3),
+                    fetchCleveland(0, 3),
+                    fetchWalters(0, 3)
                 ]);
 
-                loadedSearches = { met: 4, chicago: 4, rijks: 3 };
+                loadedSearches = { met: 4, chicago: 4, rijks: 3, cleveland: 3, walters: 3 };
 
                 allArtworks = dedupeArtworks([
                     ...metResults,
                     ...chicagoResults,
-                    ...rijksResults
+                    ...rijksResults,
+                    ...clevelandResults,
+                    ...waltersResults
                 ]);
 
                 allArtworks.sort(() => Math.random() - 0.5);
@@ -878,16 +999,113 @@
             }
         }
 
+        let customSearchTerm = null;
+
+        async function customSearch() {
+            const input = document.getElementById('searchInput');
+            const term = input.value.trim();
+            if (!term) return;
+
+            customSearchTerm = term;
+            document.getElementById('genreSubtitle').textContent = `Search results for "${term}"`;
+            document.getElementById('genreSelect').value = '';
+
+            allArtworks = [];
+            dismissed = [];
+            loadedSearches = { met: 0, chicago: 0, rijks: 0, cleveland: 0, walters: 0 };
+            currentView = 'all';
+            setActiveButton('all');
+
+            document.getElementById('gallery').innerHTML = '<div class="loading"><div class="spinner"></div><p>Searching museums...</p></div>';
+
+            try {
+                const [metRes, chicagoRes, rijksRes, clevelandRes, waltersRes] = await Promise.all([
+                    fetchCustom('met', term),
+                    fetchCustom('chicago', term),
+                    fetchCustom('rijks', term),
+                    fetchCustom('cleveland', term),
+                    fetchCustom('walters', term)
+                ]);
+
+                allArtworks = dedupeArtworks([...metRes, ...chicagoRes, ...rijksRes, ...clevelandRes, ...waltersRes]);
+                allArtworks.sort(() => Math.random() - 0.5);
+
+                updateStats();
+                renderGallery();
+                document.getElementById('pagination').style.display = 'none';
+            } catch (e) {
+                console.error('Search error:', e);
+            }
+        }
+
+        async function fetchCustom(museum, term) {
+            try {
+                if (museum === 'met') {
+                    const res = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/search?q=${encodeURIComponent(term)}&hasImages=true&isPublicDomain=true`);
+                    const data = await res.json();
+                    if (!data.objectIDs) return [];
+                    const ids = data.objectIDs.slice(0, 25);
+                    const details = await Promise.all(ids.map(id => fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${id}`).then(r => r.json()).catch(() => null)));
+                    return details.filter(obj => obj?.primaryImage && obj.isPublicDomain && isPainting(obj.medium, obj.objectName)).map(obj => ({
+                        id: `met-${obj.objectID}`, title: obj.title || 'Untitled', artist: obj.artistDisplayName || 'Unknown Artist',
+                        artistUrl: obj.artistWikidata_URL || null,
+                        date: obj.objectDate || '', medium: obj.medium || '', dimensions: obj.dimensions || '', museum: 'The Met',
+                        imageUrl: obj.primaryImage, thumbUrl: obj.primaryImageSmall || obj.primaryImage, sourceUrl: obj.objectURL
+                    }));
+                } else if (museum === 'chicago') {
+                    const res = await fetch(`https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(term)}&query[term][is_public_domain]=true&fields=id,title,artist_display,artist_id,date_display,medium_display,dimensions,image_id,artwork_type_title&limit=25`);
+                    const data = await res.json();
+                    return (data.data || []).filter(a => a.image_id && isPainting(a.medium_display, a.artwork_type_title)).map(a => ({
+                        id: `chicago-${a.id}`, title: a.title || 'Untitled', artist: a.artist_display || 'Unknown Artist',
+                        artistUrl: a.artist_id ? `https://www.artic.edu/artists/${a.artist_id}` : null,
+                        date: a.date_display || '', medium: a.medium_display || '', dimensions: a.dimensions || '', museum: 'Art Institute of Chicago',
+                        imageUrl: `https://www.artic.edu/iiif/2/${a.image_id}/full/1200,/0/default.jpg`, thumbUrl: `https://www.artic.edu/iiif/2/${a.image_id}/full/400,/0/default.jpg`, sourceUrl: `https://www.artic.edu/artworks/${a.id}`
+                    }));
+                } else if (museum === 'rijks') {
+                    const res = await fetch(`https://www.rijksmuseum.nl/api/en/collection?key=0fiuZFh4&q=${encodeURIComponent(term)}&imgonly=true&ps=25`);
+                    const data = await res.json();
+                    return (data.artObjects || []).filter(a => a.webImage?.url).map(a => ({
+                        id: `rijks-${a.objectNumber}`, title: a.title || 'Untitled', artist: a.principalOrFirstMaker || 'Unknown Artist',
+                        artistUrl: null,
+                        date: '', medium: '', dimensions: '', museum: 'Rijksmuseum', imageUrl: a.webImage.url, thumbUrl: a.webImage.url.replace('=s0', '=s400'), sourceUrl: a.links?.web || `https://www.rijksmuseum.nl/en/collection/${a.objectNumber}`
+                    }));
+                } else if (museum === 'cleveland') {
+                    const res = await fetch(`https://openaccess-api.clevelandart.org/api/artworks?q=${encodeURIComponent(term)}&has_image=1&limit=25`);
+                    const data = await res.json();
+                    return (data.data || []).filter(a => a.images?.web && isPainting(a.technique, a.type)).map(a => ({
+                        id: `cleveland-${a.id}`, title: a.title || 'Untitled', artist: a.creators?.map(c => c.description).join(', ') || 'Unknown Artist',
+                        artistUrl: null,
+                        date: a.creation_date || '', medium: a.technique || '', dimensions: a.dimensions || '', museum: 'Cleveland Museum of Art',
+                        imageUrl: a.images.web.url, thumbUrl: a.images.web.url, sourceUrl: `https://www.clevelandart.org/art/${a.id}`
+                    }));
+                } else if (museum === 'walters') {
+                    const res = await fetch(`https://api.thewalters.org/v1/objects?keyword=${encodeURIComponent(term)}&pageSize=25`);
+                    const data = await res.json();
+                    return (data.Items || []).filter(a => a.PrimaryImage?.Raw && isPainting(a.Medium, a.Classification)).map(a => ({
+                        id: `walters-${a.ObjectID}`, title: a.Title || 'Untitled', artist: a.Creator || 'Unknown Artist',
+                        artistUrl: null,
+                        date: a.DateText || '', medium: a.Medium || '', dimensions: a.Dimensions || '', museum: 'Walters Art Museum',
+                        imageUrl: a.PrimaryImage.Raw, thumbUrl: a.PrimaryImage.Small || a.PrimaryImage.Raw, sourceUrl: `https://art.thewalters.org/detail/${a.ObjectID}`
+                    }));
+                }
+            } catch (e) { console.log(`${museum} search error:`, e); }
+            return [];
+        }
+
         function changeGenre() {
             const select = document.getElementById('genreSelect');
             currentGenre = select.value;
+            if (!currentGenre) return;
+
+            customSearchTerm = null;
+            document.getElementById('searchInput').value = '';
             const genre = genres[currentGenre];
 
             document.getElementById('genreSubtitle').textContent = genre.subtitle;
 
             // Reset and reload
             allArtworks = [];
-            loadedSearches = { met: 0, chicago: 0, rijks: 0 };
+            loadedSearches = { met: 0, chicago: 0, rijks: 0, cleveland: 0, walters: 0 };
             currentView = 'all';
             setActiveButton('all');
 
@@ -903,21 +1121,26 @@
             btn.disabled = true;
 
             try {
-                const terms = getCurrentSearchTerms();
-                const [metResults, chicagoResults, rijksResults] = await Promise.all([
+                const [metResults, chicagoResults, rijksResults, clevelandResults, waltersResults] = await Promise.all([
                     fetchMet(loadedSearches.met, 3),
                     fetchChicago(loadedSearches.chicago, 3),
-                    fetchRijks(loadedSearches.rijks, 2)
+                    fetchRijks(loadedSearches.rijks, 2),
+                    fetchCleveland(loadedSearches.cleveland, 2),
+                    fetchWalters(loadedSearches.walters, 2)
                 ]);
 
                 loadedSearches.met += 3;
                 loadedSearches.chicago += 3;
                 loadedSearches.rijks += 2;
+                loadedSearches.cleveland += 2;
+                loadedSearches.walters += 2;
 
                 const newArtworks = dedupeArtworks([
                     ...metResults,
                     ...chicagoResults,
-                    ...rijksResults
+                    ...rijksResults,
+                    ...clevelandResults,
+                    ...waltersResults
                 ], allArtworks);
 
                 newArtworks.sort(() => Math.random() - 0.5);
@@ -1080,7 +1303,15 @@
 
             document.getElementById('modalImg').src = currentArtwork.imageUrl;
             document.getElementById('modalTitle').textContent = currentArtwork.title;
-            document.getElementById('modalArtist').textContent = currentArtwork.artist;
+
+            const artistEl = document.getElementById('modalArtist');
+            const artistName = currentArtwork.artist;
+            const artistUrl = currentArtwork.artistUrl || (artistName && artistName !== 'Unknown Artist' ? `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(artistName)}` : null);
+            if (artistUrl) {
+                artistEl.innerHTML = `<a href="${artistUrl}" target="_blank" style="color: inherit; text-decoration: underline; text-underline-offset: 3px;">${artistName}</a>`;
+            } else {
+                artistEl.textContent = artistName;
+            }
             document.getElementById('modalDetails').innerHTML = `
                 ${currentArtwork.date ? `<p><strong>Date:</strong> ${currentArtwork.date}</p>` : ''}
                 ${currentArtwork.medium ? `<p><strong>Medium:</strong> ${currentArtwork.medium}</p>` : ''}
@@ -1182,6 +1413,7 @@
                         if (obj && obj.primaryImage) {
                             favoriteArtworks[id] = {
                                 id, title: obj.title || 'Untitled', artist: obj.artistDisplayName || 'Unknown',
+                                artistUrl: obj.artistWikidata_URL || null,
                                 date: obj.objectDate || '', medium: obj.medium || '', dimensions: obj.dimensions || '',
                                 museum: 'The Met', imageUrl: obj.primaryImage, thumbUrl: obj.primaryImageSmall || obj.primaryImage,
                                 sourceUrl: obj.objectURL
@@ -1213,6 +1445,32 @@
                                 date: '', medium: '', dimensions: '', museum: 'Rijksmuseum',
                                 imageUrl: art.webImage.url, thumbUrl: art.webImage.url.replace('=s0', '=s400'),
                                 sourceUrl: art.links?.web || `https://www.rijksmuseum.nl/en/collection/${objNum}`
+                            };
+                        }
+                    } else if (id.startsWith('cleveland-')) {
+                        const artId = id.replace('cleveland-', '');
+                        const res = await fetch(`https://openaccess-api.clevelandart.org/api/artworks/${artId}`);
+                        const data = await res.json();
+                        if (data.data?.images?.web) {
+                            const art = data.data;
+                            favoriteArtworks[id] = {
+                                id, title: art.title || 'Untitled', artist: art.creators?.map(c => c.description).join(', ') || 'Unknown',
+                                date: art.creation_date || '', medium: art.technique || '', dimensions: art.dimensions || '',
+                                museum: 'Cleveland Museum of Art', imageUrl: art.images.web.url, thumbUrl: art.images.web.url,
+                                sourceUrl: `https://www.clevelandart.org/art/${artId}`
+                            };
+                        }
+                    } else if (id.startsWith('walters-')) {
+                        const objId = id.replace('walters-', '');
+                        const res = await fetch(`https://api.thewalters.org/v1/objects/${objId}`);
+                        const data = await res.json();
+                        if (data.Data?.PrimaryImage?.Raw) {
+                            const art = data.Data;
+                            favoriteArtworks[id] = {
+                                id, title: art.Title || 'Untitled', artist: art.Creator || 'Unknown',
+                                date: art.DateText || '', medium: art.Medium || '', dimensions: art.Dimensions || '',
+                                museum: 'Walters Art Museum', imageUrl: art.PrimaryImage.Raw, thumbUrl: art.PrimaryImage.Small || art.PrimaryImage.Raw,
+                                sourceUrl: `https://art.thewalters.org/detail/${objId}`
                             };
                         }
                     }
