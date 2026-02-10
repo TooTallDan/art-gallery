@@ -33,7 +33,7 @@
 
         header {
             background: var(--bg);
-            padding: 0.5rem 5% 20px;
+            padding: 12px 5% 20px;
             text-align: center;
             border-bottom: 1px solid #333;
             position: sticky;
@@ -57,18 +57,16 @@
         }
 
         .floating-nav {
-            position: fixed;
-            top: 16px;
-            right: 5%;
             display: flex;
             background: rgba(37, 37, 37, 0.85);
             backdrop-filter: blur(10px);
             border-radius: 100rem;
             border: 1px solid rgba(255, 255, 255, 0.08);
             padding: 4px;
-            z-index: 9999;
             font-size: 0.85rem;
             font-weight: 500;
+            margin-left: auto;
+            flex-shrink: 0;
         }
 
         .floating-nav a {
@@ -511,14 +509,13 @@
     </style>
 </head>
 <body>
-    <nav class="floating-nav">
-        <a href="https://ericdaniel.co" target="_top">Home</a>
-        <a href="https://ericdaniel.co/vibe/art-finder" target="_top" class="active">Vibe</a>
-    </nav>
-
     <header>
         <div class="header-top">
             <h1>Art Finder</h1>
+            <nav class="floating-nav">
+                <a href="https://ericdaniel.co" target="_top">Home</a>
+                <a href="https://ericdaniel.co/vibe/art-finder" target="_top" class="active">Vibe</a>
+            </nav>
         </div>
         <div class="search-bar">
             <input type="text" id="searchInput" placeholder="Search any keyword..." onkeypress="if(event.key==='Enter')customSearch()">
@@ -1538,20 +1535,6 @@
         updateCounts();
         loadInitialArtworks();
         fetchMissingFavorites();
-    </script>
-    <script>
-        (function() {
-            var nav = document.querySelector('.floating-nav');
-            var h1 = document.querySelector('h1');
-            if (!nav || !h1) return;
-            function align() {
-                var r = h1.getBoundingClientRect();
-                nav.style.top = (r.top + r.height / 2) + 'px';
-                nav.style.transform = 'translateY(-50%)';
-            }
-            align();
-            window.addEventListener('resize', align);
-        })();
     </script>
 </body>
 </html>
