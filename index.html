@@ -28,8 +28,8 @@
         }
 
         header {
-            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
-            padding: 30px 20px;
+            background: var(--bg);
+            padding: 0.5rem 5% 20px;
             text-align: center;
             border-bottom: 1px solid #333;
             position: sticky;
@@ -37,12 +37,55 @@
             z-index: 100;
         }
 
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            margin-bottom: 12px;
+        }
+
         h1 {
             font-size: 2rem;
-            font-weight: 300;
-            letter-spacing: 3px;
+            font-weight: 600;
+            letter-spacing: 2px;
             color: var(--accent);
-            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .floating-nav {
+            position: fixed;
+            top: 16px;
+            right: 5%;
+            display: flex;
+            background: rgba(37, 37, 37, 0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 100rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 4px;
+            z-index: 9999;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .floating-nav a {
+            text-decoration: none;
+            color: var(--text-dim);
+            padding: 6px 14px;
+            border-radius: 100rem;
+            transition: all 0.2s;
+        }
+
+        .floating-nav a:hover {
+            color: var(--text);
+        }
+
+        .floating-nav a.active {
+            background: var(--accent);
+            color: var(--bg);
+        }
+
+        @media (max-width: 500px) {
+            h1 { font-size: 1.4rem; }
         }
 
         .search-bar {
@@ -464,8 +507,15 @@
     </style>
 </head>
 <body>
+    <nav class="floating-nav">
+        <a href="https://ericdaniel.co" target="_top">Home</a>
+        <a href="https://ericdaniel.co/vibe/art-finder" target="_top" class="active">Vibe</a>
+    </nav>
+
     <header>
-        <h1>MUSEUM ART GALLERY</h1>
+        <div class="header-top">
+            <h1>Art Finder</h1>
+        </div>
         <div class="search-bar">
             <input type="text" id="searchInput" placeholder="Search any keyword..." onkeypress="if(event.key==='Enter')customSearch()">
             <button onclick="customSearch()">Search</button>
